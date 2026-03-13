@@ -85,3 +85,22 @@ def delete_song():
         else:
             path = os.path.join(playlist, song)
             os.remove(path)
+
+def move_song():
+    playlist = playlists.pick_playlist()
+    if playlist == -1:
+        return -1
+    else:
+        song = aux.pick_song(playlist)
+        if song == -1:
+            return -1
+        else:
+            new_playlist = playlists.pick_playlist()
+            if new_playlist == playlist:
+                print("This song is already in this playlist")
+            elif new_playlist == -1:
+                return -1
+            else:
+                old_path = os.path.join(playlist, song)
+                new_path = os.path.join(new_playlist, song)
+                os.rename(old_path, new_path)

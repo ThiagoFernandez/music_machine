@@ -1,8 +1,8 @@
-import subprocess
 import aux
 import file
 import playlists
 import os
+import player
 
 def show_menu(menu, lista_opt, lista_funciones):
     while True:
@@ -23,8 +23,8 @@ def show_main_menu():
         else:
             match result:
                 case 1:
-                    lista_opt_n = ["Select Playlist", "All songs"]
-                    lista_fun_n = [select_playlist, mix_mode]
+                    lista_opt_n = ["Select Playlist", "All songs", "Search a song"]
+                    lista_fun_n = [player.play_playlist, player.mix_mode, player.search_song]
                     menu_f = "play menu"
                     show_menu(menu_f, lista_opt_n, lista_fun_n)
                 case 2:
@@ -33,12 +33,11 @@ def show_main_menu():
                     menu_c = "playlist menu"
                     show_menu(menu_c, lista_opt_c, lista_fun_c)
                 case 3:
-                    lista_opt_t = ["Download a song", "Rename a song", "Delete a song"]
-                    lista_fun_t = [file.download_music, file.rename_song, file.delete_song]
+                    lista_opt_t = ["Download a song", "Rename a song", "Delete a song", "Move a song"]
+                    lista_fun_t = [file.download_music, file.rename_song, file.delete_song, file.move_song]
                     menu_t = "FIles menu"
                     show_menu(menu_t, lista_opt_t, lista_fun_t)
 
 # m.p
-
 
 show_main_menu()

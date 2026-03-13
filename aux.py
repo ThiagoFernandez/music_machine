@@ -1,4 +1,14 @@
 import os
+import sys
+import select
+
+def check_input():
+    if select.select([sys.stdin], [], [], 0)[0]:
+        return sys.stdin.readline().strip()
+    return None
+
+
+
 
 def pick_song(playlist):
 
@@ -44,5 +54,27 @@ def validate_string(options, text, type):
         else:
             return string
 
+def validate_command(options, text):
+    while True:
+        string = input(f"{text}('*' to go back to the menu): ")
+        if string.strip() == "":
+            print("Only blank space as text is invalid | Try again")
+        elif string.strip() == "*":
+            return -1
+        elif string not in options:
+            print("That's not a valid command | Try again")
+        else:
+            return string
+
 def greeting_text(text):
     print(f"{' ' + text + ' ':-^60}")
+
+def validate_string_v2(text):
+    while True:
+        string = input(f"{text}('*' to go back to the menu): ")
+        if string.strip() == "":
+            print("Only blank space as text is invalid | Try again")
+        elif string.strip() == "*":
+            return -1
+        else:
+            return string
