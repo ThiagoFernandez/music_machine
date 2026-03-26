@@ -1,13 +1,32 @@
 import os
 import sys
 import select
+import msvcrt
+
+buffer = ""
 
 def check_input():
-    if select.select([sys.stdin], [], [], 0)[0]:
-        return sys.stdin.readline().strip()
-    return None
+    global buffer
 
-
+    if sys.platform == "win32":
+        if msvcrt.kbhit():
+            while msvcrt.kbhit():
+                char = msvcrt.getwche()
+                if char == "\r": # this is the 'enter'
+                    print() # ts the br
+                    line = buffer
+                    buffeer = ""
+                    return line
+                elif char == "\x08": # ts's the backspace
+                    buffeer = buffeer[:-1]
+                    print(" \b", end="", flush=True)
+                else:
+                    buffer += char
+        return None
+    else:
+        if select.select([sys.stdin], [], [], 0)[0]:
+            return sys.stdin.readline().strip()
+        return None
 
 
 def pick_song(playlist):
