@@ -1,7 +1,6 @@
 import os
 import sys
 import select
-import msvcrt
 
 buffer = ""
 
@@ -9,6 +8,7 @@ def check_input():
     global buffer
 
     if sys.platform == "win32":
+        import msvcrt
         if msvcrt.kbhit():
             while msvcrt.kbhit():
                 char = msvcrt.getwche()
