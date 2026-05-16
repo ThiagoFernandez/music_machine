@@ -36,7 +36,7 @@ def download_music():
                                     "-m",
                                     "yt_dlp",
                                     "--no-playlist",  # para el file settings lo mas probable
-                                    "--embed-metadada",
+                                    "--embed-metadata",
                                     "-x",
                                     "--audio-format",
                                     "mp3",
