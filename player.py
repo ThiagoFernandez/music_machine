@@ -4,13 +4,38 @@ import time
 from turtle import clear
 
 import pygame
+from mutagen.id3 import ID3
+from mutagen.mp3 import MP3
 from pypresence import Presence
 
 import auxiliar
 import playlists
 
-client_id = 1505235525223841952
+client_id = "1505235525223841952"
 RPC = None
+
+
+def get_song_metadata(path):
+    try:
+        tags = ID3(path)
+        title = tags["TIT2"].text[0] if "TIT2" in tags else None
+        artist = tags["TPE1"].text[0] if "TPE1" in tags else None
+        if title and artist:
+            return title, artist
+    except Exception:
+        pass
+    name = os.path.splitext(os.path.basename(path))[0]
+    if " - " in name:
+        parts = name.split(" - ", 1)
+        return parts[1].strip(), parts[0].strip()
+    return name, None
+
+
+def get_song_duration(path):
+    try:
+        return int(MP3(path).info.length)  # segundos
+    except Exception:
+        return None
 
 
 def connect_rpc():
@@ -24,15 +49,19 @@ def connect_rpc():
         print("Discord RPC failed not available")
 
 
-def update_rpc(title, artist=None):
+def update_rpc(title, artist=None, duration=None):
     if RPC:
         try:
+            now = int(time.time())
             RPC.update(
                 details=title,
                 state=artist
                 if artist
-                else "Music Machine",  # o sea, no todos los files van a tener su artista por ende pongo como un placeholder
-                start=int(time.time()),
+                else "noname",  # o sea, no todos los files van a tener su artista por ende pongo como un placeholder
+                start=now,
+                end=now + duration if duration else None,
+                large_image="boombox_1_",
+                large_text=title,
             )
         except Exception:
             pass
@@ -57,23 +86,26 @@ COMMANDS_HINT = (
 
 
 def play_queue(queue, loop_on=False, previous_exits=False):
-    print("Do you want to enable shuffe?")
-    options = ["yes", "no"]
-    auxiliar.show_options(options)
-    rt = auxiliar.validate_number(options)
-    if rt == -1:
-        return
-    if options[rt - 1] == "yes":
-        random.shuffle(queue)
+    if len(queue) > 1:
+        print("Do you want to enable shuffe?")
+        options = ["yes", "no"]
+        auxiliar.show_options(options)
+        rt = auxiliar.validate_number(options)
+        if rt == -1:
+            return
+        if options[rt - 1] == "yes":
+            random.shuffle(queue)
     while True:
         idx = 0
         while idx < len(queue):
             path = queue[idx]
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
-            update_rpc(os.path.basename(path))
+            title, artist = get_song_metadata(path)
+            duration = get_song_duration(path)
+            update_rpc(title or os.path.basename(path), artist, duration)
             paused = False
-            print(f"\nNow playing: {os.path.basename(path)}")
+            print(f"\nNow playing: {title}")
             print(f"Queue position: [{idx + 1}/{len(queue)}]")
             print(COMMANDS_HINT)
 

@@ -1,8 +1,9 @@
-import subprocess
 import os
+import subprocess
+import sys
+
 import auxiliar
 import playlists
-import sys
 
 
 def download_music():
@@ -12,7 +13,9 @@ def download_music():
     else:
         while True:
             try:
-                option = int(input(f"1 -> song\n2 -> playlist\n3 -> exit\nChoose an option: "))
+                option = int(
+                    input(f"1 -> song\n2 -> playlist\n3 -> exit\nChoose an option: ")
+                )
                 if option == 3:
                     return None
                 else:
@@ -27,16 +30,23 @@ def download_music():
 
                             output_path = os.path.join(playlist, "%(title)s.%(ext)s")
 
-                            subprocess.run([
-                                sys.executable,
-                                "-m", "yt_dlp",
-                                "--no-playlist", # para el file settings lo mas probable
-                                "-x",
-                                "--audio-format", "mp3",
-                                "--audio-quality", "0",
-                                "-o", output_path,
-                                url
-                            ])
+                            subprocess.run(
+                                [
+                                    sys.executable,
+                                    "-m",
+                                    "yt_dlp",
+                                    "--no-playlist",  # para el file settings lo mas probable
+                                    "--embed-metadada",
+                                    "-x",
+                                    "--audio-format",
+                                    "mp3",
+                                    "--audio-quality",
+                                    "0",
+                                    "-o",
+                                    output_path,
+                                    url,
+                                ]
+                            )
                         else:
                             url = input(
                                 "Copy the link from youtube\n"
@@ -45,17 +55,24 @@ def download_music():
 
                             output_path = os.path.join(playlist, "%(title)s.%(ext)s")
 
-                            subprocess.run([
-                                sys.executable,
-                                "-m", "yt_dlp",
-                                "-x",
-                                "--audio-format", "mp3",
-                                "--audio-quality", "0",
-                                "-o", output_path,
-                                url
-                            ])
+                            subprocess.run(
+                                [
+                                    sys.executable,
+                                    "-m",
+                                    "yt_dlp",
+                                    "-x",
+                                    "--audio-format",
+                                    "mp3",
+                                    "--audio-quality",
+                                    "0",
+                                    "-o",
+                                    output_path,
+                                    url,
+                                ]
+                            )
             except ValueError:
                 print("The option must be a number | Try again")
+
 
 def rename_song():
     playlist = playlists.pick_playlist()
@@ -66,13 +83,16 @@ def rename_song():
         if song == -1:
             return -1
         else:
-            new_name = auxiliar.validate_string([song], "Write the new name for the song", 0)
+            new_name = auxiliar.validate_string(
+                [song], "Write the new name for the song", 0
+            )
             if new_name == -1:
                 return -1
             else:
                 old_path = os.path.join(playlist, song)
                 new_path = os.path.join(playlist, new_name)
                 os.rename(old_path, new_path)
+
 
 def delete_song():
     playlist = playlists.pick_playlist()
@@ -85,6 +105,7 @@ def delete_song():
         else:
             path = os.path.join(playlist, song)
             os.remove(path)
+
 
 def move_song():
     playlist = playlists.pick_playlist()
