@@ -1,9 +1,21 @@
 import os
 
+import audio
 import auxiliar
 import file
 import player
 import playlists
+
+
+def starting_options():
+    print("Enable Discord Rich Presence? (y/n): ", end="")
+    if input().strip().lower() == "y":
+        player.connect_rpc()
+
+    opt = audio.choose_device(audio.list_devices())
+    if opt is None:
+        return None
+    return opt
 
 
 def show_menu(menu, lista_opt, lista_funciones):
@@ -17,9 +29,9 @@ def show_menu(menu, lista_opt, lista_funciones):
 
 
 def show_main_menu():
-    print("Enable Discord Rich Presence? (y/n): ", end="")
-    if input().strip().lower() == "y":
-        player.connect_rpc()
+    device = starting_options()
+    if device:
+        player.set_pygame(device)
     while True:
         print(f"{' Welcome to the main menu ':-^60}")
         auxiliar.show_options(["Play Menu", "Playlist Menu", "Files Menu"])

@@ -1,13 +1,13 @@
 import os
 import random
 import time
-from turtle import clear
 
 import pygame
 from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from pypresence import Presence
 
+import audio
 import auxiliar
 import playlists
 
@@ -75,9 +75,13 @@ def clear_rpc():
             pass
 
 
-pygame.init()
-pygame.mixer.init()
-pygame.mixer.music.set_volume(0.5)
+def set_pygame(device):
+    pygame.init()
+    pygame.mixer.quit()
+    pygame.mixer.init(devicename=device)
+    pygame.mixer.music.set_volume(0.5)
+
+
 current_volume = 0.5
 
 COMMANDS_HINT = (
