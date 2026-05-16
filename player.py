@@ -1,15 +1,60 @@
-import pygame
-import auxiliar
-import playlists
 import os
 import random
+import time
+from turtle import clear
+
+import pygame
+from pypresence import Presence
+
+import auxiliar
+import playlists
+
+client_id = 1505235525223841952
+RPC = None
+
+
+def connect_rpc():
+    global RPC
+    try:
+        RPC = Presence(client_id)
+        RPC.connect()
+        print("Discord RPC connected")
+    except Exception:
+        RPC = None  # para q no te explote el programa si tenes ds close
+        print("Discord RPC failed not available")
+
+
+def update_rpc(title, artist=None):
+    if RPC:
+        try:
+            RPC.update(
+                details=title,
+                state=artist
+                if artist
+                else "Music Machine",  # o sea, no todos los files van a tener su artista por ende pongo como un placeholder
+                start=int(time.time()),
+            )
+        except Exception:
+            pass
+
+
+def clear_rpc():
+    if RPC:
+        try:
+            RPC.clear()
+        except Exception:
+            pass
+
 
 pygame.init()
 pygame.mixer.init()
 pygame.mixer.music.set_volume(0.5)
 current_volume = 0.5
 
-COMMANDS_HINT = "Commands: pause | resume | previous | skip | restart | stop | up | down | mute"
+COMMANDS_HINT = (
+    "Commands: pause | resume | previous | skip | restart | stop | up | down | mute"
+)
+
 
 def play_queue(queue, loop_on=False, previous_exits=False):
     print("Do you want to enable shuffe?")
@@ -18,7 +63,7 @@ def play_queue(queue, loop_on=False, previous_exits=False):
     rt = auxiliar.validate_number(options)
     if rt == -1:
         return
-    if options[rt-1] == "yes":
+    if options[rt - 1] == "yes":
         random.shuffle(queue)
     while True:
         idx = 0
@@ -26,9 +71,10 @@ def play_queue(queue, loop_on=False, previous_exits=False):
             path = queue[idx]
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
+            update_rpc(os.path.basename(path))
             paused = False
             print(f"\nNow playing: {os.path.basename(path)}")
-            print(f"Queue position: [{idx+1}/{len(queue)}]")
+            print(f"Queue position: [{idx + 1}/{len(queue)}]")
             print(COMMANDS_HINT)
 
             go_previous = False
@@ -45,7 +91,7 @@ def play_queue(queue, loop_on=False, previous_exits=False):
                         break
                     elif previous_exits:
                         pygame.mixer.music.stop()
-                        return
+                        return clear_rpc()
                     else:
                         print("Can't go back cuz ts is the 1st song")
                 pygame.time.Clock().tick(10)
@@ -53,7 +99,8 @@ def play_queue(queue, loop_on=False, previous_exits=False):
             idx = idx - 1 if go_previous else idx + 1
 
         if not loop_on:
-            return
+            return clear_rpc()
+
 
 def loop_status():
     print("LOOP STATUS")
@@ -86,7 +133,7 @@ def manage_commands(path, paused):
         if command == "up":
             current_volume = min(current_volume + 0.1, 1.0)
             pygame.mixer.music.set_volume(current_volume)
-            print(f"Volume: {100*current_volume:.0f}%")
+            print(f"Volume: {100 * current_volume:.0f}%")
         if command == "mute":
             current_volume = 0.0
             pygame.mixer.music.set_volume(0.0)
@@ -94,11 +141,12 @@ def manage_commands(path, paused):
         if command == "down":
             current_volume = max(current_volume - 0.1, 0.0)
             pygame.mixer.music.set_volume(current_volume)
-            print(f"Volume: {100*current_volume:.0f}%")
+            print(f"Volume: {100 * current_volume:.0f}%")
         if command == "restart":
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
     return paused, None
+
 
 def play_playlist():
     playlist = playlists.pick_playlist()
@@ -120,7 +168,8 @@ def mix_mode():
     for p in os.listdir():
         if os.path.isdir(p):
             queue.extend(
-                os.path.join(p, s) for s in os.listdir(p)
+                os.path.join(p, s)
+                for s in os.listdir(p)
                 if os.path.isfile(os.path.join(p, s)) and s.endswith(".mp3")
             )
     play_queue(queue, loop_on=False)
@@ -148,4 +197,4 @@ def search_song():
     lp = loop_status()
     if lp == -1:
         return -1
-    play_queue([matches[rt-1]], loop_on=(lp == "on"), previous_exits=True)
+    play_queue([matches[rt - 1]], loop_on=(lp == "on"), previous_exits=True)
