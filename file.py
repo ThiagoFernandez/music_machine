@@ -35,7 +35,8 @@ def download_music():
                                     sys.executable,
                                     "-m",
                                     "yt_dlp",
-                                    "--no-playlist",  # para el file settings lo mas probable
+                                    "--no-playlist",
+                                    "--embed-thumbnail",
                                     "--embed-metadata",
                                     "-x",
                                     "--audio-format",
@@ -60,6 +61,8 @@ def download_music():
                                     sys.executable,
                                     "-m",
                                     "yt_dlp",
+                                    "--embed-thumbnail",
+                                    "--embed-metadata",
                                     "-x",
                                     "--audio-format",
                                     "mp3",
