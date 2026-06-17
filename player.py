@@ -1,3 +1,4 @@
+import atexit
 import os
 import random
 import time
@@ -110,6 +111,19 @@ def clear_rpc():
             RPC.clear()
         except Exception:
             pass
+
+
+def disconnect_rpc():
+    if RPC:
+        try:
+            RPC.close()
+        except Exception:
+            pass
+
+
+atexit.register(
+    disconnect_rpc
+)  # esta fun se ejecuta cuando termina todo, tipo py la guarda y cuando termina se ejcuta
 
 
 def set_pygame(device):
