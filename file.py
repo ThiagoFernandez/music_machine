@@ -2,8 +2,49 @@ import os
 import subprocess
 import sys
 
+from mutagen.id3 import ID3
+
 import auxiliar
+import lyrics
 import playlists
+
+
+def get_song_metadata(path):
+    title = None
+    artist = None
+    try:
+        tags = ID3(path)
+        title = (
+            tags["TIT2"].text[0] if "TIT2" in tags else None
+        )  # antes manejaba mal el titulo y el artista
+        artist = tags["TPE1"].text[0] if "TPE1" in tags else None
+    except Exception:
+        pass
+
+    # yt-dlp con YouTube mete el titulo del video crudo en TIT2.
+    # Si tiene " - ", splittear para separar artist y title.
+    if title and " - " in title:
+        parts = title.split(" - ", 1)
+        artist = parts[
+            0
+        ].strip()  # por lo q vi, por norma general ponen el nombre del artista antes
+        title = parts[1].strip()
+
+    if title:
+        return title, artist
+
+    # Fallback final: filename
+    name = os.path.splitext(os.path.basename(path))[0]
+    if " - " in name:
+        parts = name.split(" - ", 1)
+        return parts[1].strip(), parts[0].strip()
+    return name, None
+
+
+def show_report(playlist):
+    print("\nFetching lyrics...")
+    processed, found = lyrics.ensure_lyrics_for_folder(playlist, get_song_metadata)
+    print(f"Lyrics: {found}/{processed} found\n")
 
 
 def download_music():
@@ -38,6 +79,8 @@ def download_music():
                                     "--no-playlist",
                                     "--embed-thumbnail",
                                     "--embed-metadata",
+                                    "--parse-metadata",
+                                    "title:^(?P<artist>.+?) - (?P<title>.+)$",
                                     "-x",
                                     "--audio-format",
                                     "mp3",
@@ -48,6 +91,7 @@ def download_music():
                                     url,
                                 ]
                             )
+                            show_report(playlist)
                         else:
                             url = input(
                                 "Copy the link from youtube\n"
@@ -63,6 +107,8 @@ def download_music():
                                     "yt_dlp",
                                     "--embed-thumbnail",
                                     "--embed-metadata",
+                                    "--parse-metadata",
+                                    "title:^(?P<artist>.+?) - (?P<title>.+)$",
                                     "-x",
                                     "--audio-format",
                                     "mp3",
@@ -73,6 +119,8 @@ def download_music():
                                     url,
                                 ]
                             )
+                            show_report(playlist)
+
             except ValueError:
                 print("The option must be a number | Try again")
 
