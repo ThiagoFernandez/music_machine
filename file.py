@@ -41,9 +41,11 @@ def get_song_metadata(path):
     return name, None
 
 
-def show_report(playlist):
+def show_report(playlist, interactive=False):
     print("\nFetching lyrics...")
-    processed, found = lyrics.ensure_lyrics_for_folder(playlist, get_song_metadata)
+    processed, found = lyrics.ensure_lyrics_for_folder(
+        playlist, get_song_metadata, interactive=interactive
+    )
     print(f"Lyrics: {found}/{processed} found\n")
 
 
@@ -81,6 +83,8 @@ def download_music():
                                     "--embed-metadata",
                                     "--parse-metadata",
                                     "title:^(?P<artist>.+?) - (?P<title>.+)$",
+                                    "--parse-metadata",
+                                    "%(artist|uploader)s:^(?P<artist>.+?)(?:\\s*-\\s*Topic\\s*)?$",
                                     "-x",
                                     "--audio-format",
                                     "mp3",
@@ -91,7 +95,7 @@ def download_music():
                                     url,
                                 ]
                             )
-                            show_report(playlist)
+                            show_report(playlist, interactive=True)
                         else:
                             url = input(
                                 "Copy the link from youtube\n"
@@ -119,7 +123,7 @@ def download_music():
                                     url,
                                 ]
                             )
-                            show_report(playlist)
+                            show_report(playlist, interactive=False)
 
             except ValueError:
                 print("The option must be a number | Try again")

@@ -2,18 +2,20 @@ import os
 import re
 
 import requests
-from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
+
+import auxiliar
 
 
 def clean_title(title):
     """
-    Limpio los adornos estilo official o cosas asi pero no los titutlos alternativos para evitar mismatches
+    Limpia adornos cosméticos del título pero respeta los markers
+    de edits/mixes/alternates para no buscar versiones equivocadas.
     """
     if not title:
         return None
 
-    # si el título contiene marcadores de edit/mix/alternate, no buscamos
+    # markers que indican una version no oficial → no buscamos
     skip_markers = [
         "extended",
         "alternate",
@@ -34,10 +36,19 @@ def clean_title(title):
     if any(marker in lower for marker in skip_markers):
         return None
 
-    # los q si!!!
+    # patrones cosmoticos a eliminar
     cosmetic = [
+        # cualquier (Official...) o [Official...]
         r"\(\s*official[^)]*\)",
         r"\[\s*official[^\]]*\]",
+        # featurings: (feat. X), (ft. X), (featuring X)
+        r"\(\s*feat\.?[^)]*\)",
+        r"\(\s*ft\.?[^)]*\)",
+        r"\(\s*featuring[^)]*\)",
+        r"\[\s*feat\.?[^\]]*\]",
+        r"\[\s*ft\.?[^\]]*\]",
+        r"\[\s*featuring[^\]]*\]",
+        # otros adornos
         r"\(\s*music\s+video\s*\)",
         r"\(\s*lyric\s+video\s*\)",
         r"\(\s*lyrics?\s*\)",
@@ -54,34 +65,117 @@ def clean_title(title):
     for p in cosmetic:
         title = re.sub(p, "", title, flags=re.IGNORECASE)
 
-    return title.strip() or None
+    # puntuacion final que confunde al matching de la API
+    title = title.rstrip("?!.").strip()
+
+    return title or None
 
 
-def fetch_from_lrclib(artist, title, duration=None):
-    """Pega a LRCLIB. Devuelve lyrics planas, [Instrumental], o None."""
-    if not artist or not title:
+def clean_artist(artist):
+    """
+    Normaliza el artist:
+    - reemplaza comas CJK (japonesa/china) por comas normales
+    - si hay múltiples artistas (coma, &, feat, ft), toma solo el primero
+    """
+    if not artist:
+        return None
+    # caracteres CJK que YouTube/YT Music a veces meten (la coma esa ponja)
+    artist = artist.replace("，", ",").replace("、", ",")
+    # tomar solo el primer artista
+    for sep in [",", "&", " feat.", " ft.", " featuring", " x ", " X "]:
+        if sep in artist:
+            artist = artist.split(sep, 1)[0]
+            break
+    return artist.strip() or None
+
+
+def fetch_from_lrclib(artist, title, duration=None, interactive=False):
+    if not title:
         return None
     title = clean_title(title)
     if not title:
-        # print("Not an official version | Couldn't find a exact match for this")
         return None
+    artist = clean_artist(artist)
+
+    # 1. match exacto con /api/get si hay artist
+    if artist:
+        try:
+            params = {"artist_name": artist, "track_name": title}
+            if duration:
+                params["duration"] = duration
+            r = requests.get("https://lrclib.net/api/get", params=params, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                if data.get("instrumental"):
+                    return "[Instrumental]"
+                if data.get("plainLyrics"):
+                    return data["plainLyrics"]
+        except Exception:
+            pass
+
+    # 2. fallback con /api/search
     try:
-        params = {"artist_name": artist, "track_name": title}
-        if duration:
-            params["duration"] = duration
-        r = requests.get("https://lrclib.net/api/get", params=params, timeout=5)
+        params = {"track_name": title}
+        if artist:
+            params["artist_name"] = artist
+        r = requests.get("https://lrclib.net/api/search", params=params, timeout=5)
         if r.status_code != 200:
             return None
-        data = r.json()
-        if data.get("instrumental"):
-            return "[Instrumental]"
-        return data.get("plainLyrics") or None
+        results = r.json()
     except Exception:
         return None
 
+    if not results:
+        return None
+
+    # filtrar por duration ±5s si la tenemos
+    if duration:
+        close = [
+            res
+            for res in results
+            if res.get("duration") and abs(res["duration"] - duration) <= 5
+        ]
+        if close:
+            results = close
+
+    # un solo resultado tras el filtro → automatico
+    if len(results) == 1:
+        return _extract_lyrics(results[0])
+
+    # multiples + interactive → preguntar al usuario
+    if interactive:
+        return _ask_user_to_pick(results, title)
+
+    # multiples + no interactive → primero con lyrics
+    for item in results:
+        result = _extract_lyrics(item)
+        if result:
+            return result
+    return None
+
+
+def _extract_lyrics(item):
+    if item.get("instrumental"):
+        return "[Instrumental]"
+    return item.get("plainLyrics") or None
+
+
+def _ask_user_to_pick(results, query_title):
+    """Muestra opciones al usuario para elegir entre múltiples matches."""
+    options = [
+        f"{r.get('artistName', '?')} - {r.get('trackName', '?')}"
+        f" [{r.get('duration', '?')}s] - {r.get('albumName', '?')}"
+        for r in results[:10]
+    ]
+    print(f"\nMultiple matches for '{query_title}':")
+    auxiliar.show_options(options)
+    choice = auxiliar.validate_number(options)
+    if choice == -1:
+        return None
+    return _extract_lyrics(results[choice - 1])
+
 
 def save_lyrics(mp3_path, lyrics_text):
-    """Guarda lyrics como .txt al lado del MP3."""
     try:
         txt_path = os.path.splitext(mp3_path)[0] + ".txt"
         with open(txt_path, "w", encoding="utf-8") as f:
@@ -92,7 +186,6 @@ def save_lyrics(mp3_path, lyrics_text):
 
 
 def load_lyrics(mp3_path):
-    """Lee lyrics cacheadas de disco (o None si no existe)."""
     txt_path = os.path.splitext(mp3_path)[0] + ".txt"
     if not os.path.exists(txt_path):
         return None
@@ -103,12 +196,7 @@ def load_lyrics(mp3_path):
         return None
 
 
-def ensure_lyrics_for_folder(folder, get_metadata_fn):
-    """
-    Recorre todos los .mp3 de una carpeta. Para los que no tengan .txt asociado,
-    busca en LRCLIB y guarda. get_metadata_fn(path) -> (title, artist).
-    Devuelve (procesados, encontrados).
-    """
+def ensure_lyrics_for_folder(folder, get_metadata_fn, interactive=False):
     processed = 0
     found = 0
     for filename in os.listdir(folder):
@@ -124,10 +212,12 @@ def ensure_lyrics_for_folder(folder, get_metadata_fn):
             duration = int(MP3(mp3_path).info.length)
         except Exception:
             pass
-        lyrics = fetch_from_lrclib(artist, title, duration)
+        lyrics_text = fetch_from_lrclib(
+            artist, title, duration, interactive=interactive
+        )
         processed += 1
-        if lyrics:
-            save_lyrics(mp3_path, lyrics)
+        if lyrics_text:
+            save_lyrics(mp3_path, lyrics_text)
             found += 1
             print(f"  ✓ {title}")
         elif clean_title(title) is None:

@@ -2,7 +2,6 @@ import atexit
 import os
 import random
 import time
-from tkinter.constants import N
 
 import pygame
 from mutagen.mp3 import MP3
@@ -156,7 +155,7 @@ def manage_commands(path, paused, lyrics):
         command = command.lower()
         if command == "skip":
             pygame.mixer.music.stop()
-            return paused, None
+            return paused, -2
         if command == "pause":
             pygame.mixer.music.pause()
             paused = True
@@ -164,10 +163,10 @@ def manage_commands(path, paused, lyrics):
             pygame.mixer.music.unpause()
             paused = False
         if command == "previous":
-            return paused, None
+            return paused, -3
         if command == "stop":
             pygame.mixer.music.stop()
-            return paused, None
+            return paused, -1
         if command == "up":
             current_volume = min(current_volume + 0.1, 1.0)
             pygame.mixer.music.set_volume(current_volume)
@@ -184,13 +183,12 @@ def manage_commands(path, paused, lyrics):
             pygame.mixer.music.load(path)
             pygame.mixer.music.play()
         if command == "lyrics":
-            if command == "lyrics":
-                if lyrics:
-                    print("\n=== LYRICS ===")
-                    print(lyrics)
-                    print("==============\n")
-                else:
-                    print("Lyrics not available")
+            if lyrics:
+                print("\n=== LYRICS ===")
+                print(lyrics)
+                print("==============\n")
+            else:
+                print("Lyrics not available")
     return paused, None
 
 
