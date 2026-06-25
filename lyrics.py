@@ -61,6 +61,17 @@ def clean_title(title):
         r"\[\s*audio\s*\]",
         r"\[\s*hd\s*\]",
         r"\[\s*4k\s*\]",
+        # adornos de versión
+        r"\(\s*remaster(ed)?[^)]*\)",
+        r"\[\s*remaster(ed)?[^\]]*\]",
+        r"\(\s*\d{4}\s+remaster[^)]*\)",
+        r"\[\s*\d{4}\s+remaster[^\]]*\]",
+        r"\(\s*deluxe[^)]*\)",
+        r"\[\s*deluxe[^\]]*\]",
+        r"\(\s*explicit[^)]*\)",
+        r"\[\s*explicit[^\]]*\]",
+        r"\(\s*hd\s*remaster[^)]*\)",
+        r"\[\s*hd\s*remaster[^\]]*\]",
     ]
     for p in cosmetic:
         title = re.sub(p, "", title, flags=re.IGNORECASE)
@@ -96,29 +107,32 @@ def fetch_from_lrclib(artist, title, duration=None, interactive=False):
     if not title:
         return None
     artist = clean_artist(artist)
+    print(f"  [debug] artist={artist!r}, title={title!r}, duration={duration}")
 
-    # 1. match exacto con /api/get si hay artist
-    if artist:
-        try:
-            params = {"artist_name": artist, "track_name": title}
-            if duration:
-                params["duration"] = duration
-            r = requests.get("https://lrclib.net/api/get", params=params, timeout=5)
-            if r.status_code == 200:
-                data = r.json()
-                if data.get("instrumental"):
-                    return "[Instrumental]"
-                if data.get("plainLyrics"):
-                    return data["plainLyrics"]
-        except Exception:
-            pass
+    # primer intento con el titulo limpio
+    result = _try_lrclib(artist, title, duration, interactive)
+    if result:
+        return result
 
-    # 2. fallback con /api/search
+    # retry: si el titulo todavia tiene parentesis o corchetes
+    # (probable subtitulo de la cancion), probar sin eso
+    stripped = re.sub(r"\s*\([^)]*\)\s*", " ", title).strip()
+    stripped = re.sub(r"\s*\[[^\]]*\]\s*", " ", stripped).strip()
+    if stripped and stripped != title:
+        result = _try_lrclib(artist, stripped, duration, interactive)
+        if result:
+            return result
+
+    return None
+
+
+def _try_lrclib(artist, title, duration, interactive):
+    # 1. search (rápido, fuzzy, siempre responde)
     try:
         params = {"track_name": title}
         if artist:
             params["artist_name"] = artist
-        r = requests.get("https://lrclib.net/api/search", params=params, timeout=5)
+        r = requests.get("https://lrclib.net/api/search", params=params, timeout=10)
         if r.status_code != 200:
             return None
         results = r.json()
@@ -128,7 +142,7 @@ def fetch_from_lrclib(artist, title, duration=None, interactive=False):
     if not results:
         return None
 
-    # filtrar por duration ±5s si la tenemos
+    # filtrar por duration ±5s
     if duration:
         close = [
             res
@@ -138,15 +152,12 @@ def fetch_from_lrclib(artist, title, duration=None, interactive=False):
         if close:
             results = close
 
-    # un solo resultado tras el filtro → automatico
     if len(results) == 1:
         return _extract_lyrics(results[0])
 
-    # multiples + interactive → preguntar al usuario
     if interactive:
         return _ask_user_to_pick(results, title)
 
-    # multiples + no interactive → primero con lyrics
     for item in results:
         result = _extract_lyrics(item)
         if result:
